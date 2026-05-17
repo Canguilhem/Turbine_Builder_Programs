@@ -9,7 +9,7 @@ In-depth architecture, instructions, client notes, and test details live next to
 | Program    | Documentation                                                                                                                                                          |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **vault**  | [programs/vault/README.md](programs/vault/README.md) — per-user SOL vault (PDAs, `initialize` / `deposit` / `withdraw` / `close`), Rust LiteSVM tests, TS Mocha suite. |
-| **escrow** | Source: [`programs/escrow/`](programs/escrow/) — add a `README.md` there when you document flows and accounts.                                                         |
+| **escrow** | [programs/escrow/README.md](programs/escrow/README.md) — two-mint SPL escrow (`make` / `take` / `refund`), PDA + vault ATA.                                            |
 
 ## Quick commands
 
