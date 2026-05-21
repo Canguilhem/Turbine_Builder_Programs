@@ -14,10 +14,17 @@ pub mod escrow {
     use super::*;
 
     #[instruction(discriminator = 0)]
-    pub fn make(ctx: Context<Make>, seed: u64,  receive: u64, deposit: u64, expiration:u64) -> Result<()> {
-        ctx.accounts.init_escrow(seed, receive, expiration, &ctx.bumps)?;
+    pub fn make(
+        ctx: Context<Make>,
+        seed: u64,
+        receive: u64,
+        deposit: u64,
+        expiration: u64,
+    ) -> Result<()> {
+        ctx.accounts
+            .init_escrow(seed, receive, expiration, &ctx.bumps)?;
         ctx.accounts.deposit(deposit)?;
-        
+
         Ok(())
     }
 
@@ -25,14 +32,14 @@ pub mod escrow {
     pub fn take(ctx: Context<Take>) -> Result<()> {
         ctx.accounts.deposit()?;
         ctx.accounts.withdraw_and_close()?;
-        
+
         Ok(())
     }
 
     #[instruction(discriminator = 2)]
     pub fn refund(ctx: Context<Refund>) -> Result<()> {
         ctx.accounts.refund_and_close()?;
-        
+
         Ok(())
     }
 }

@@ -1,11 +1,14 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token_interface::{Mint, TokenAccount, TokenInterface, TransferChecked, transfer_checked}};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked},
+};
 
-use crate::{Escrow, error::EscrowErrors, ESCROW_SEED};
+use crate::{error::EscrowErrors, Escrow, ESCROW_SEED};
 
 #[derive(Accounts)]
 #[instruction(seeds:u64)]
-pub struct Make<'info>{
+pub struct Make<'info> {
     #[account(mut)]
     pub maker: Signer<'info>,
     #[account(
@@ -42,27 +45,28 @@ pub struct Make<'info>{
 
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub system_program:Program<'info, System>
+    pub system_program: Program<'info, System>,
 }
 
-impl <'info>Make<'info> {
-
-    pub fn init_escrow(&mut self, seed:u64, receive: u64, expiration:u64,  bumps:&MakeBumps) -> Result<()> {
-
+impl<'info> Make<'info> {
+    pub fn init_escrow(
+        &mut self,
+        seed: u64,
+        receive: u64,
+        expiration: u64,
+        bumps: &MakeBumps,
+    ) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
-        require!(
-            (expiration as i64) > now,
-            EscrowErrors::ExpirationInPast,
-        );
+        require!((expiration as i64) > now, EscrowErrors::ExpirationInPast,);
 
-        self.escrow.set_inner(Escrow { 
+        self.escrow.set_inner(Escrow {
             seed,
             maker: self.maker.key(),
             mint_a: self.mint_a.key(),
             mint_b: self.mint_b.key(),
             receive_amount: receive,
             expiration,
-            bump: bumps.escrow
+            bump: bumps.escrow,
         });
 
         Ok(())
@@ -70,8 +74,7 @@ impl <'info>Make<'info> {
 
     // deposit tokens A into vault
     pub fn deposit(&mut self, deposit: u64) -> Result<()> {
-        
-        let transfer_accounts = TransferChecked{
+        let transfer_accounts = TransferChecked {
             from: self.maker_ata_a.to_account_info(),
             mint: self.mint_a.to_account_info(),
             to: self.vault.to_account_info(),
@@ -79,8 +82,7 @@ impl <'info>Make<'info> {
         };
 
         let cpi_ctx = CpiContext::new(self.token_program.key(), transfer_accounts);
-        
-        Ok(transfer_checked(cpi_ctx, deposit, self.mint_a.decimals)?)
+
+        transfer_checked(cpi_ctx, deposit, self.mint_a.decimals)
     }
 }
-

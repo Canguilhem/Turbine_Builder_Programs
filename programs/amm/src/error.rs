@@ -22,11 +22,11 @@ pub enum AmmError {
     #[msg("Slippage exceeded")]
     SlippageLimitExceeded,
     #[msg("Invalid Amount")]
-    InvalidAmount
+    InvalidAmount,
 }
 
 impl From<CurveError> for AmmError {
-    fn from(error:CurveError)-> AmmError{
+    fn from(error: CurveError) -> AmmError {
         match error {
             CurveError::InvalidPrecision => AmmError::InvalidPrecision,
             CurveError::Overflow => AmmError::Overflow,

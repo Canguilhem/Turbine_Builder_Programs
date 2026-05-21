@@ -1,18 +1,21 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token::{Token,Mint, TokenAccount},};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+};
 
-use crate::{CONFIG_SEED, Config, LP_SEED};
+use crate::{Config, CONFIG_SEED, LP_SEED};
 
 #[derive(Accounts)]
 #[instruction(seed:u64)]
-pub struct Initialize <'info> {
+pub struct Initialize<'info> {
     #[account(mut)]
     pub initializer: Signer<'info>,
-    // no constraints on X and Y ? 
+    // no constraints on X and Y ?
     // -> using interface would allow supporting token2022
     pub mint_x: Account<'info, Mint>,
     pub mint_y: Account<'info, Mint>,
-    
+
     #[account(
         init, 
         payer= initializer,
@@ -21,8 +24,8 @@ pub struct Initialize <'info> {
         mint::decimals = 6,
         mint::authority = config
     )]
-    pub mint_lp:Account<'info, Mint>,
-    
+    pub mint_lp: Account<'info, Mint>,
+
     #[account(
         init,
         payer= initializer,
@@ -30,7 +33,7 @@ pub struct Initialize <'info> {
         associated_token::authority= config,
     )]
     pub vault_x: Account<'info, TokenAccount>,
-    
+
     #[account(
         init,
         payer= initializer,
@@ -38,7 +41,7 @@ pub struct Initialize <'info> {
         associated_token::authority= config
     )]
     pub vault_y: Account<'info, TokenAccount>,
-    
+
     #[account(
         init,
         payer= initializer,
@@ -47,34 +50,34 @@ pub struct Initialize <'info> {
         space= Config::DISCRIMINATOR.len() + Config::INIT_SPACE
     )]
     pub config: Account<'info, Config>,
-    
+
     // needed for spl init CPI
-    pub token_program:Program<'info,Token>,
-    
+    pub token_program: Program<'info, Token>,
+
     // needed for ATA init CPI
-    pub associated_token_program:Program<'info, AssociatedToken>,
-    
+    pub associated_token_program: Program<'info, AssociatedToken>,
+
     // needed for all account creation / lamport transfers CPI
-    pub system_program: Program<'info, System>
+    pub system_program: Program<'info, System>,
 }
 
-impl<'info> Initialize <'info> {
+impl<'info> Initialize<'info> {
     pub fn init(
         &mut self,
-        seed:u64,
-        fee:u16,
-        authority:Option<Pubkey>,
-        bumps: InitializeBumps
-    )-> Result<()>{
-        self.config.set_inner(Config { 
+        seed: u64,
+        fee: u16,
+        authority: Option<Pubkey>,
+        bumps: InitializeBumps,
+    ) -> Result<()> {
+        self.config.set_inner(Config {
             seed,
-            authority, 
-            mint_x: self.mint_x.key(), 
-            mint_y: self.mint_y.key(), 
+            authority,
+            mint_x: self.mint_x.key(),
+            mint_y: self.mint_y.key(),
             fee,
-            locked: false, 
-            config_bump: bumps.config, 
-            lp_bump: bumps.mint_lp 
+            locked: false,
+            config_bump: bumps.config,
+            lp_bump: bumps.mint_lp,
         });
 
         Ok(())

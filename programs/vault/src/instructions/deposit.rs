@@ -1,9 +1,12 @@
-use anchor_lang::{prelude::*, system_program::{Transfer, transfer}};
+use anchor_lang::{
+    prelude::*,
+    system_program::{transfer, Transfer},
+};
 
 use crate::VaultState;
 
 #[derive(Accounts)]
-pub struct Deposit <'info> {
+pub struct Deposit<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
 
@@ -12,7 +15,7 @@ pub struct Deposit <'info> {
         bump= vault_state.state_bump,
     )]
     pub vault_state: Account<'info, VaultState>,
-    
+
     #[account(
         mut,
         seeds=[b"vault",vault_state.key().as_ref()],
@@ -21,18 +24,16 @@ pub struct Deposit <'info> {
     pub vault: SystemAccount<'info>,
     pub system_program: Program<'info, System>,
 }
-impl <'info> Deposit<'info> {
-    pub fn deposit(&mut self, amount:u64 ) -> Result<()> {
-
-        let cpi_accounts= Transfer {
-            from:self.user.to_account_info(),
-            to:self.vault.to_account_info()
+impl<'info> Deposit<'info> {
+    pub fn deposit(&mut self, amount: u64) -> Result<()> {
+        let cpi_accounts = Transfer {
+            from: self.user.to_account_info(),
+            to: self.vault.to_account_info(),
         };
-        
-        // using System::id() instead of  self.system_program.key()
-        let cpi_ctx= CpiContext::new(System::id(), cpi_accounts);
-        
 
-        Ok(transfer(cpi_ctx,amount)?)
+        // using System::id() instead of  self.system_program.key()
+        let cpi_ctx = CpiContext::new(System::id(), cpi_accounts);
+
+        transfer(cpi_ctx, amount)
     }
 }

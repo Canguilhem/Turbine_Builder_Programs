@@ -1,4 +1,7 @@
-use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas, solana_program::msg, system_program::ID as SYSTEM_PROGRAM_ID};
+use anchor_lang::{
+    solana_program::msg, system_program::ID as SYSTEM_PROGRAM_ID, AccountDeserialize,
+    InstructionData, ToAccountMetas,
+};
 use litesvm::LiteSVM;
 use solana_keypair::Keypair;
 use solana_message::Instruction;
@@ -12,7 +15,7 @@ fn setup() -> (LiteSVM, Keypair) {
     let mut svm = LiteSVM::new();
     let bytes = include_bytes!("../../../target/deploy/vault.so");
     svm.add_program(program_id, bytes).unwrap();
-    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap(); // 10 Sol Airdrop 
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap(); // 10 Sol Airdrop
     (svm, payer)
 }
 
@@ -56,15 +59,15 @@ fn test_vault_initialize() {
     let (svm, vault_state_pda, _vault_pda, vault_bump, state_bump) = init_vault(svm, &payer);
 
     // pda should exist
-    let vault_state_account =svm.get_account(&vault_state_pda).unwrap();
+    let vault_state_account = svm.get_account(&vault_state_pda).unwrap();
 
-    let vault_state = vault::state::VaultState::try_deserialize(&mut vault_state_account. data.as_ref()).unwrap();
+    let vault_state =
+        vault::state::VaultState::try_deserialize(&mut vault_state_account.data.as_ref()).unwrap();
 
     // checking bumps
     assert_eq!(vault_state.vault_bump, vault_bump);
     assert_eq!(vault_state.state_bump, state_bump);
 }
-
 
 #[test]
 fn test_deposit_widthraw_close() {
@@ -91,8 +94,9 @@ fn test_deposit_widthraw_close() {
         }
         .to_account_metas(None),
         data: vault::instruction::Deposit {
-            amount:deposit_amount
-        }.data(),
+            amount: deposit_amount,
+        }
+        .data(),
     };
 
     let tx = Transaction::new_signed_with_payer(
@@ -151,7 +155,7 @@ fn test_deposit_widthraw_close() {
     );
 
     // close
-    
+
     let close_ix = Instruction {
         program_id: vault::id(),
         accounts: vault::accounts::Close {
@@ -171,7 +175,6 @@ fn test_deposit_widthraw_close() {
         svm.latest_blockhash(),
     );
 
-
     let result = svm.send_transaction(tx).unwrap();
     msg!("close ok, logs: {:?}", result.logs);
 
@@ -179,8 +182,7 @@ fn test_deposit_widthraw_close() {
     assert!(svm.get_account(&vault_pda).is_none());
     assert!(svm.get_account(&vault_state_pda).is_none());
 
-    let user_balance_after_close= svm.get_balance(&user).unwrap();
+    let user_balance_after_close = svm.get_balance(&user).unwrap();
     assert!(user_balance_after_close > vault_balance_after_withdraw);
     msg!("Balance after close {} ", user_balance_after_close)
-
 }

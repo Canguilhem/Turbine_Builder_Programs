@@ -1,12 +1,8 @@
 use anchor_lang::{
-    AccountDeserialize, InstructionData, ToAccountMetas, solana_program::msg,
-    solana_program::program_pack::Pack, system_program::ID as SYSTEM_PROGRAM_ID,
+    solana_program::msg, solana_program::program_pack::Pack,
+    system_program::ID as SYSTEM_PROGRAM_ID, AccountDeserialize, InstructionData, ToAccountMetas,
 };
-use anchor_spl::{
-    associated_token,
-    token,
-    token::spl_token::state::Account as SplTokenAccount,
-};
+use anchor_spl::{associated_token, token, token::spl_token::state::Account as SplTokenAccount};
 use litesvm::{types::FailedTransactionMetadata, LiteSVM};
 use litesvm_token::{CreateAssociatedTokenAccount, CreateMint, MintTo};
 use solana_clock::Clock;
@@ -194,7 +190,9 @@ fn test_escrow_refund() {
     let seed: u64 = 456;
 
     let fx = make_escrow(&mut program, &payer, seed, default_escrow_expiration());
-    let escrow_data = program.get_account(&fx.escrow).expect("escrow before refund");
+    let escrow_data = program
+        .get_account(&fx.escrow)
+        .expect("escrow before refund");
     let escrow_state =
         escrow::Escrow::try_deserialize(&mut escrow_data.data.as_ref()).expect("escrow state");
     assert_eq!(escrow_state.seed, fx.seed);
@@ -384,7 +382,9 @@ fn test_maker_refund_succeeds_after_expiration() {
         program.latest_blockhash(),
     );
 
-    program.send_transaction(tx).expect("maker refund after expiry should succeed");
+    program
+        .send_transaction(tx)
+        .expect("maker refund after expiry should succeed");
     assert!(program.get_account(&fx.escrow).is_none());
     assert!(program.get_account(&fx.vault).is_none());
     assert_eq!(token_balance(&program, &fx.maker_ata_a), MINT_TO_MAKER);
