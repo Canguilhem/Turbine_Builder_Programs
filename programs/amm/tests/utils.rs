@@ -206,3 +206,24 @@ pub fn create_swap_ix(
         data: amm::instruction::Swap { is_x, amount, min }.data(),
     }
 }
+
+pub fn update_config_ix(
+    payer: &Keypair,
+    config: Pubkey,
+    seed: u64,
+    locked: bool,
+    authority: Option<Pubkey>,
+    fee: u16,
+) -> Instruction {
+    let maker = payer.pubkey();
+
+    Instruction {
+        program_id: amm::id(),
+        accounts: amm::accounts::UpdateConfig {
+            user: maker,
+            config,
+        }
+        .to_account_metas(None),
+        data: amm::instruction::UpdateConfig { _seed:seed, authority, fee, locked }.data(),
+    }
+}

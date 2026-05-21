@@ -1,6 +1,5 @@
-use anchor_lang::solana_program::msg;
 use anchor_lang::AccountDeserialize;
-use anchor_spl::{associated_token, token};
+use anchor_spl::{associated_token};
 use litesvm::LiteSVM;
 use litesvm_token::{CreateMint, MintTo};
 use solana_keypair::Keypair;
@@ -12,7 +11,7 @@ mod utils;
 use utils::create_initialize_ix;
 
 use crate::utils::{
-    create_deposit_ix, create_swap_ix, create_withdraw_ix, get_user_atas, token_balance,
+    create_deposit_ix, create_swap_ix, create_withdraw_ix, get_user_atas, token_balance, update_config_ix,
 };
 
 fn send(
@@ -342,4 +341,38 @@ fn test_swap() {
     let k_after = vault_x_balance as u128 * vault_y_balance as u128;
     assert!(k_after >= k_before, "K increased after swap");
     assert_eq!(user_lp_balance, deposit_amount, "LP should be unchanged");
+}
+
+
+#[test]
+fn test_update_config() {
+    let (mut svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y) = setup();
+    
+    let seed= 123;
+    let fee=30;
+    
+    let init = create_initialize_ix(
+        &mut svm, &payer, mint_x, mint_y, config, seed, fee, mint_lp, vault_x, vault_y,
+    );
+    let new_admin = Keypair::new().pubkey();
+    
+    let update = update_config_ix(
+        &payer,
+        config,
+        seed,
+        true,
+        Some(new_admin),
+        fee * 2,
+    );
+    
+    let result = send(&mut svm, &[init,update], &payer, &[&payer]);
+    result.expect("update config");
+    
+    let config_account = svm.get_account(&config).unwrap();
+    let config_state =
+        amm::state::Config::try_deserialize(&mut config_account.data.as_ref()).unwrap();
+    
+    assert_eq!(config_state.authority, Some(new_admin));
+    assert_eq!(config_state.locked, true);
+    assert_eq!(config_state.fee, 2 * fee);
 }

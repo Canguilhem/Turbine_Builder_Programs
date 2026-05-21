@@ -7,22 +7,24 @@ pub enum AmmError {
     CustomError,
     #[msg("Pool is locked")]
     PoolLocked,
-    #[msg("Pool is locked")]
+    #[msg("Invalid precision")]
     InvalidPrecision,
-    #[msg("Pool is locked")]
+    #[msg("Overflow")]
     Overflow,
-    #[msg("Pool is locked")]
+    #[msg("Underflow")]
     Underflow,
-    #[msg("Pool is locked")]
+    #[msg("Invalid fee amount")]
     InvalidFeeAmount,
-    #[msg("Pool is locked")]
+    #[msg("Insufficient balance")]
     InsufficientBalance,
-    #[msg("Pool is locked")]
+    #[msg("Zero Balance")]
     ZeroBalance,
     #[msg("Slippage exceeded")]
     SlippageLimitExceeded,
     #[msg("Invalid Amount")]
     InvalidAmount,
+    #[msg("Unauthorized")]
+    Unauthorized,
 }
 
 impl From<CurveError> for AmmError {
