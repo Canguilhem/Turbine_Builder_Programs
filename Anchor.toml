@@ -6,6 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
+amm = "ExzLNn8DtryFZcebCuLXebVht54Wkd6m7EqYS8UFAjSS"
 escrow = "HSQjtk3WCLWicX9Mku925tHpq19B8x8bj39WZXCMrUNR"
 vault = "3YqWHvBo8ytiLYQrMGvoNL7MKvNNvECnZJHRj7zdoP82"
 
