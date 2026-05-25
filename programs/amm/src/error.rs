@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-use constant_product_curve::CurveError;
+
+use cpmm::CpmmError;
 
 #[error_code]
 pub enum AmmError {
@@ -27,16 +28,32 @@ pub enum AmmError {
     Unauthorized,
 }
 
-impl From<CurveError> for AmmError {
-    fn from(error: CurveError) -> AmmError {
-        match error {
-            CurveError::InvalidPrecision => AmmError::InvalidPrecision,
-            CurveError::Overflow => AmmError::Overflow,
-            CurveError::Underflow => AmmError::Underflow,
-            CurveError::InvalidFeeAmount => AmmError::InvalidFeeAmount,
-            CurveError::InsufficientBalance => AmmError::InsufficientBalance,
-            CurveError::ZeroBalance => AmmError::ZeroBalance,
-            CurveError::SlippageLimitExceeded => AmmError::SlippageLimitExceeded,
+impl From<CpmmError> for AmmError {
+    fn from(err: CpmmError) -> Self {
+        match err {
+            CpmmError::InvalidAmount => AmmError::InvalidAmount,
+            CpmmError::ZeroBalance => AmmError::ZeroBalance,
+            CpmmError::InvalidFee => AmmError::InvalidFeeAmount,
+            CpmmError::SlippageExceeded => AmmError::SlippageLimitExceeded,
+            CpmmError::Overflow => AmmError::Overflow,
+            CpmmError::Underflow => AmmError::Underflow,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cpmm_error_maps_to_amm_error() {
+        match AmmError::from(CpmmError::SlippageExceeded) {
+            AmmError::SlippageLimitExceeded => {}
+            other => panic!("unexpected mapping: {other:?}"),
+        }
+        match AmmError::from(CpmmError::InvalidFee) {
+            AmmError::InvalidFeeAmount => {}
+            other => panic!("unexpected mapping: {other:?}"),
         }
     }
 }

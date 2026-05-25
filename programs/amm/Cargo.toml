@@ -23,7 +23,7 @@ custom-panic = []
 [dependencies]
 anchor-lang = {version="1.0.2",features = ["init-if-needed"]}
 anchor-spl = "1.0.2"
-constant-product-curve = { git = "https://github.com/deanmlittle/constant-product-curve" }
+cpmm = { path = "../../crates/cpmm" }
 
 # [lints.rust]
 # unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

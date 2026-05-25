@@ -1,6 +1,7 @@
 [workspace]
-members = [ 
-    "programs/*"
+members = [
+    "programs/*",
+    "crates/cpmm",
 ]
 resolver = "2"
 

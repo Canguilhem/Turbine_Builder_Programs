@@ -3,9 +3,8 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{mint_to, transfer, Mint, MintTo, Token, TokenAccount, Transfer},
 };
-use constant_product_curve::ConstantProduct;
 
-use crate::{error::AmmError, Config, CONFIG_SEED, LP_SEED};
+use crate::{error::AmmError, Config, DepositQuote, OperationSide, PoolState, CONFIG_SEED, LP_SEED};
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
@@ -27,7 +26,6 @@ pub struct Deposit<'info> {
         bump= config.lp_bump
     )]
     pub mint_lp: Account<'info, Mint>,
-    // VAULT X/Y ATAs
     #[account(
         mut,
         associated_token::mint= mint_x,
@@ -40,8 +38,6 @@ pub struct Deposit<'info> {
         associated_token::authority= config
     )]
     pub vault_y: Box<Account<'info, TokenAccount>>,
-
-    // User X/Y ATAs
     #[account(
         mut,
         associated_token::mint= mint_x,
@@ -70,42 +66,56 @@ pub struct Deposit<'info> {
 impl<'info> Deposit<'info> {
     pub fn deposit(
         &mut self,
-        amount: u64, // amount of LP that user wants to "claim"
-        max_x: u64,  // max amount of X that user is willing to deposit
-        max_y: u64,  // max amount of Y that user is willing to deposit
+        token_x: Option<u64>,
+        token_y: Option<u64>,
+        side: OperationSide,
+        min_lp: u64,
     ) -> Result<()> {
         require!(!self.config.locked, AmmError::PoolLocked);
-        require_neq!(amount, 0, AmmError::InvalidAmount);
 
-        let (x, y) =
-            if self.mint_lp.supply == 0 && self.vault_x.amount == 0 && self.vault_y.amount == 0 {
-                (max_x, max_y)
-            } else {
-                let amounts = ConstantProduct::xy_deposit_amounts_from_l(
-                    self.vault_x.amount,
-                    self.vault_y.amount,
-                    self.mint_lp.supply,
-                    amount,
-                    6,
-                )
-                .unwrap();
+        let pool = PoolState::new(
+            self.vault_x.amount,
+            self.vault_y.amount,
+            self.mint_lp.supply,
+            self.config.fee,
+        );
 
-                require!(
-                    amounts.x <= max_x && amounts.y <= max_y,
-                    AmmError::SlippageLimitExceeded
-                );
+        let quote = pool
+            .deposit(token_x, token_y, side.into(), min_lp)
+            .map_err(AmmError::from)?;
 
-                (amounts.x, amounts.y)
-            };
-
-        // deposit X
-        self.deposit_tokens(true, x)?;
-        // deposit Y
-        self.deposit_tokens(false, y)?;
-        self.mint_lp_tokens(amount)
+        self.execute_deposit_transfers(side, &quote)?;
+        self.mint_lp_tokens(quote.lp_minted)
     }
 
-    pub fn deposit_tokens(&self, is_x: bool, amount: u64) -> Result<()> {
+    fn execute_deposit_transfers(&self, side: OperationSide, quote: &DepositQuote) -> Result<()> {
+        match side {
+            OperationSide::Balanced => {
+                self.transfer_user_to_vault(true, quote.deposit_x)?;
+                self.transfer_user_to_vault(false, quote.deposit_y)?;
+            }
+            OperationSide::X => {
+                self.transfer_user_to_vault(true, quote.swap_in_x)?;
+                self.transfer_vault_to_user(false, quote.swap_out_y)?;
+                self.transfer_user_to_vault(true, quote.deposit_x)?;
+                self.transfer_user_to_vault(false, quote.deposit_y)?;
+            }
+            OperationSide::Y => {
+                self.transfer_user_to_vault(false, quote.swap_in_y)?;
+                self.transfer_vault_to_user(true, quote.swap_out_x)?;
+                self.transfer_user_to_vault(true, quote.deposit_x)?;
+                self.transfer_user_to_vault(false, quote.deposit_y)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn transfer_user_to_vault(&self, is_x: bool, amount: u64) -> Result<()> {
+        if amount == 0 {
+            return Ok(());
+        }
+
         let program = self.token_program.key();
 
         let (from, to) = match is_x {
@@ -126,6 +136,40 @@ impl<'info> Deposit<'info> {
         };
 
         let ctx = CpiContext::new(program, accounts);
+        transfer(ctx, amount)
+    }
+
+    fn transfer_vault_to_user(&self, is_x: bool, amount: u64) -> Result<()> {
+        if amount == 0 {
+            return Ok(());
+        }
+
+        let program = self.token_program.key();
+
+        let (from, to) = match is_x {
+            true => (
+                self.vault_x.to_account_info(),
+                self.user_x.to_account_info(),
+            ),
+            false => (
+                self.vault_y.to_account_info(),
+                self.user_y.to_account_info(),
+            ),
+        };
+
+        let accounts = Transfer {
+            from,
+            to,
+            authority: self.config.to_account_info(),
+        };
+
+        let signer_seeds: &[&[&[u8]]] = &[&[
+            CONFIG_SEED,
+            &self.config.seed.to_le_bytes(),
+            &[self.config.config_bump],
+        ]];
+
+        let ctx = CpiContext::new_with_signer(program, accounts, signer_seeds);
         transfer(ctx, amount)
     }
 

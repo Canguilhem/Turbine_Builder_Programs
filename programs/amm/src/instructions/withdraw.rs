@@ -3,9 +3,8 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{burn, transfer, Burn, Mint, Token, TokenAccount, Transfer},
 };
-use constant_product_curve::ConstantProduct;
 
-use crate::{error::AmmError, Config, CONFIG_SEED, LP_SEED};
+use crate::{error::AmmError, Config, OperationSide, PoolState, WithdrawQuote, CONFIG_SEED, LP_SEED};
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
@@ -27,7 +26,6 @@ pub struct Withdraw<'info> {
         bump= config.lp_bump
     )]
     pub mint_lp: Account<'info, Mint>,
-    // VAULT X/Y ATAs
     #[account(
         mut,
         associated_token::mint= mint_x,
@@ -40,8 +38,6 @@ pub struct Withdraw<'info> {
         associated_token::authority= config
     )]
     pub vault_y: Box<Account<'info, TokenAccount>>,
-
-    // User X/Y ATAs
     #[account(
         mut,
         associated_token::mint= mint_x,
@@ -70,43 +66,52 @@ pub struct Withdraw<'info> {
 impl<'info> Withdraw<'info> {
     pub fn withdraw(
         &mut self,
-        amount: u64, // amount of LP that user wants to "burn"
-        min_x: u64,  // min amount of X that user is willing to receive
-        min_y: u64,  // min amount of Y that user is willing to receive
+        lp_amount: u64,
+        side: OperationSide,
+        min_x: u64,
+        min_y: u64,
     ) -> Result<()> {
         require!(!self.config.locked, AmmError::PoolLocked);
-        require_neq!(amount, 0, AmmError::InvalidAmount);
 
-        let (x, y) =
-            if self.mint_lp.supply == 0 && self.vault_x.amount == 0 && self.vault_y.amount == 0 {
-                (min_x, min_y)
-            } else {
-                let amounts = ConstantProduct::xy_withdraw_amounts_from_l(
-                    self.vault_x.amount,
-                    self.vault_y.amount,
-                    self.mint_lp.supply,
-                    amount,
-                    6,
-                )
-                .unwrap();
+        let pool = PoolState::new(
+            self.vault_x.amount,
+            self.vault_y.amount,
+            self.mint_lp.supply,
+            self.config.fee,
+        );
 
-                require!(
-                    amounts.x >= min_x && amounts.y >= min_y,
-                    AmmError::SlippageLimitExceeded
-                );
+        let quote = pool
+            .withdraw(lp_amount, side.into(), min_x, min_y)
+            .map_err(AmmError::from)?;
 
-                (amounts.x, amounts.y)
-            };
-
-        // deposit X
-        self.withdraw_tokens(true, x)?;
-        // deposit Y
-        self.withdraw_tokens(false, y)?;
-        // mint LP
-        self.burn_lp_tokens(amount)
+        self.execute_withdraw_transfers(side, &quote)?;
+        self.burn_lp_tokens(lp_amount)
     }
 
-    pub fn withdraw_tokens(&self, is_x: bool, amount: u64) -> Result<()> {
+    fn execute_withdraw_transfers(&self, side: OperationSide, quote: &WithdrawQuote) -> Result<()> {
+        match side {
+            OperationSide::Balanced => {
+                self.transfer_vault_to_user(true, quote.withdraw_x)?;
+                self.transfer_vault_to_user(false, quote.withdraw_y)?;
+            }
+            OperationSide::X | OperationSide::Y => {
+                self.transfer_vault_to_user(true, quote.pro_rata_x)?;
+                self.transfer_vault_to_user(false, quote.pro_rata_y)?;
+                self.transfer_user_to_vault(true, quote.swap_in_x)?;
+                self.transfer_user_to_vault(false, quote.swap_in_y)?;
+                self.transfer_vault_to_user(true, quote.swap_out_x)?;
+                self.transfer_vault_to_user(false, quote.swap_out_y)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn transfer_vault_to_user(&self, is_x: bool, amount: u64) -> Result<()> {
+        if amount == 0 {
+            return Ok(());
+        }
+
         let program = self.token_program.key();
 
         let (from, to) = match is_x {
@@ -133,6 +138,34 @@ impl<'info> Withdraw<'info> {
         ]];
 
         let ctx = CpiContext::new_with_signer(program, accounts, signer_seeds);
+        transfer(ctx, amount)
+    }
+
+    fn transfer_user_to_vault(&self, is_x: bool, amount: u64) -> Result<()> {
+        if amount == 0 {
+            return Ok(());
+        }
+
+        let program = self.token_program.key();
+
+        let (from, to) = match is_x {
+            true => (
+                self.user_x.to_account_info(),
+                self.vault_x.to_account_info(),
+            ),
+            false => (
+                self.user_y.to_account_info(),
+                self.vault_y.to_account_info(),
+            ),
+        };
+
+        let accounts = Transfer {
+            from,
+            to,
+            authority: self.user.to_account_info(),
+        };
+
+        let ctx = CpiContext::new(program, accounts);
         transfer(ctx, amount)
     }
 

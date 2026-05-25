@@ -19,6 +19,7 @@ pub struct UpdateConfig<'info> {
 }
 
 // if config.auth.isNone -> config is immutable
+ // should allow/block renouncing ? -> require(auth.is_some())
 impl<'info> UpdateConfig<'info> {
     pub fn update(
         &mut self,
@@ -32,7 +33,7 @@ impl<'info> UpdateConfig<'info> {
             self.config.authority == Some(self.user.key()),AmmError::Unauthorized
         );
         
-        // should allow/block renouncing ? -> require(auth.is_some())
+       
 
         self.config.fee =fee;
         self.config.authority= authority;

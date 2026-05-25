@@ -21,7 +21,6 @@ pub fn get_user_atas(
     mint_y: Pubkey,
     mint_lp: Pubkey,
 ) -> (Pubkey, Pubkey, Pubkey) {
-    // derive maker ATAs
     let user_x = CreateAssociatedTokenAccountIdempotent::new(svm, payer, &mint_x)
         .send()
         .unwrap();
@@ -91,9 +90,10 @@ pub fn create_deposit_ix(
     user_x: Pubkey,
     user_y: Pubkey,
     user_lp: Pubkey,
-    amount: u64,
-    max_x: u64,
-    max_y: u64,
+    token_x: Option<u64>,
+    token_y: Option<u64>,
+    side: amm::OperationSide,
+    min_lp: u64,
 ) -> Instruction {
     let maker = payer.pubkey();
 
@@ -116,9 +116,10 @@ pub fn create_deposit_ix(
         }
         .to_account_metas(None),
         data: amm::instruction::Deposit {
-            amount,
-            max_x,
-            max_y,
+            token_x,
+            token_y,
+            side,
+            min_lp,
         }
         .data(),
     }
@@ -136,7 +137,8 @@ pub fn create_withdraw_ix(
     user_x: Pubkey,
     user_y: Pubkey,
     user_lp: Pubkey,
-    amount: u64,
+    lp_amount: u64,
+    side: amm::OperationSide,
     min_x: u64,
     min_y: u64,
 ) -> Instruction {
@@ -161,7 +163,8 @@ pub fn create_withdraw_ix(
         }
         .to_account_metas(None),
         data: amm::instruction::Withdraw {
-            amount,
+            lp_amount,
+            side,
             min_x,
             min_y,
         }
@@ -180,9 +183,9 @@ pub fn create_swap_ix(
     vault_y: Pubkey,
     user_x: Pubkey,
     user_y: Pubkey,
-    is_x: bool,
+    side: amm::OperationSide,
     amount: u64,
-    min: u64,
+    min_out: u64,
 ) -> Instruction {
     let maker = payer.pubkey();
 
@@ -203,7 +206,12 @@ pub fn create_swap_ix(
             associated_token_program: ASSOCIATED_PROGRAM_ID,
         }
         .to_account_metas(None),
-        data: amm::instruction::Swap { is_x, amount, min }.data(),
+        data: amm::instruction::Swap {
+            amount,
+            side,
+            min_out,
+        }
+        .data(),
     }
 }
 
@@ -224,6 +232,12 @@ pub fn update_config_ix(
             config,
         }
         .to_account_metas(None),
-        data: amm::instruction::UpdateConfig { _seed:seed, authority, fee, locked }.data(),
+        data: amm::instruction::UpdateConfig {
+            _seed: seed,
+            authority,
+            fee,
+            locked,
+        }
+        .data(),
     }
 }

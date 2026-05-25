@@ -6,16 +6,11 @@ pub mod state;
 use anchor_lang::prelude::*;
 
 pub use constants::*;
+pub use cpmm::{CpmmError, DepositQuote, PoolState, Side, WithdrawQuote};
 pub use instructions::*;
 pub use state::*;
 
 declare_id!("ExzLNn8DtryFZcebCuLXebVht54Wkd6m7EqYS8UFAjSS");
-
-// challenges:
-// imporve tests
-// implement update fn (lock, admin, fee)
-// implement fees
-// implement your own cpmm
 
 #[program]
 pub mod amm {
@@ -31,19 +26,42 @@ pub mod amm {
         ctx.accounts.init(seed, fee, authority, ctx.bumps)
     }
 
-    pub fn deposit(ctx: Context<Deposit>, amount: u64, max_x: u64, max_y: u64) -> Result<()> {
-        ctx.accounts.deposit(amount, max_x, max_y)
+    pub fn deposit(
+        ctx: Context<Deposit>,
+        token_x: Option<u64>,
+        token_y: Option<u64>,
+        side: OperationSide,
+        min_lp: u64,
+    ) -> Result<()> {
+        ctx.accounts.deposit(token_x, token_y, side, min_lp)
     }
 
-    pub fn withdraw(ctx: Context<Withdraw>, amount: u64, min_x: u64, min_y: u64) -> Result<()> {
-        ctx.accounts.withdraw(amount, min_x, min_y)
+    pub fn withdraw(
+        ctx: Context<Withdraw>,
+        lp_amount: u64,
+        side: OperationSide,
+        min_x: u64,
+        min_y: u64,
+    ) -> Result<()> {
+        ctx.accounts.withdraw(lp_amount, side, min_x, min_y)
     }
 
-    pub fn swap(ctx: Context<Swap>, is_x: bool, amount: u64, min: u64) -> Result<()> {
-        ctx.accounts.swap(is_x, amount, min)
+    pub fn swap(
+        ctx: Context<Swap>,
+        amount: u64,
+        side: OperationSide,
+        min_out: u64,
+    ) -> Result<()> {
+        ctx.accounts.swap(amount, side, min_out)
     }
 
-    pub fn update_config(ctx: Context<UpdateConfig>,_seed:u64, fee: u16, authority: Option<Pubkey>, locked:bool ) -> Result<()> {
-        ctx.accounts.update(fee, authority,locked)
+    pub fn update_config(
+        ctx: Context<UpdateConfig>,
+        _seed: u64,
+        fee: u16,
+        authority: Option<Pubkey>,
+        locked: bool,
+    ) -> Result<()> {
+        ctx.accounts.update(fee, authority, locked)
     }
 }
